@@ -1,59 +1,29 @@
-#include <printf.h>
-#include <RF24.h>
-#include <nRF24L01.h>
-#include <RF24_config.h>
+#include "radio.h"
 
-#define CE_PIN 7
-#define CS_PIN 8
+char token[] = "abcabcabc0";
 
-RF24 radio(CE_PIN, CS_PIN);
-
-typedef struct {
-  byte type;
-  char token[11];
-  short state;
-} request;
-
+bool has_data; byte type; short state; float data;
+void handler(byte type, char token[], short state, float data){
+    // has_data = true;
+    // type = type;
+    // state = state;
+    // data = data;
+}
 void setup(){
-  pinMode(CE_PIN, OUTPUT);
-  pinMode(CS_PIN, OUTPUT);
-  Serial.begin(9600);
-    radio.begin();
-    radio.setAutoAck(true);
-    radio.enableDynamicPayloads();
-    radio.setRetries(15,15);
-    radio.openReadingPipe(1, 0xF0F0F0F0D2LL);
-    radio.openWritingPipe(0xF0F0F0F0E1LL);
-    radio.startListening();
+    Serial.begin(115200);
+    Radio.setup(true);
+    //Radio.register_receive_handler(handler);
 }
 
 void loop(){
-	request req;
-  req.type = 1;
-  strcpy(req.token, "abcabcabc0");
-  Serial.println(req.token);
-  req.state = 1;
-
-  radio.stopListening();
-  if (radio.write(&req, sizeof(req))){
-    Serial.println("transmission ok (on)");
-  } else {
-    Serial.println("transmission failed (on)");
-  }
-  radio.startListening();
-  
-  delay(5000);
-
-  req.state = 0;
-
-  radio.stopListening();
-  if (radio.write(&req, sizeof(req))){
-    Serial.println("transmission ok (off)");
-  } else {
-    Serial.println("transmission failed (off)");
-  }
-  radio.startListening();
-
-  delay(5000);
+    Radio.send(MSG_TYPE_SOFT_CONTROL, token, STATE_ON);
+    delay(3000);
+    // if (has_data){
+    //     has_data = false;
+    //     Serial.println(type);
+    //     Serial.println(state);
+    //     Serial.println(data);
+    // }
+    Radio.send(MSG_TYPE_SOFT_CONTROL, token, STATE_OFF);
+    delay(3000);
 }
-
