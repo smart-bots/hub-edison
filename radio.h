@@ -28,7 +28,7 @@
     #define MSG_TYPE_SEND_DATA 4
 
     typedef struct {
-        byte type;
+        uint8_t type;
         char token[11];
         short state;
     } send_msg;
@@ -48,6 +48,7 @@
     public:
         _Radio(): radio(NRF_CE_PIN, NRF_CS_PIN) {};
         void setup(bool is_hub);
+        void send(send_msg msg);
         void send(byte type, char token[], short state);
         void register_receive_handler(void (*handler)(byte, char[], short, float));
         void on_received();

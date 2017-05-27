@@ -1,29 +1,33 @@
 #include "radio.h"
+#include "smartbots_api.h"
+#include <string>
 
-char token[] = "abcabcabc0";
+std::string wifi_ssid="Floor 5";
+std::string wifi_password="123haiphong";
+std::string host="smart-bots.xyz";
+short port=80;
 
-bool has_data; byte type; short state; float data;
-void handler(byte type, char token[], short state, float data){
-    // has_data = true;
-    // type = type;
-    // state = state;
-    // data = data;
-}
+SmartBotsAPI api(host, port, "Tt7yfpljvOxw28BOpYT6lnE41RcGDqGIDC6QluL3Y1vE8SEv4U");
+
 void setup(){
-    Serial.begin(115200);
-    Radio.setup(true);
-    //Radio.register_receive_handler(handler);
+	Radio.setup(true);
+	Serial.begin(2000000);
+	Serial.println("[setup] connecting");
+	if (!api.setup(wifi_ssid, wifi_password)){
+		Serial.println("[setup] connect to wifi failed");
+	} else {
+		Serial.println("[setup] connect to wifi ok");
+	}
 }
 
 void loop(){
-    Radio.send(MSG_TYPE_SOFT_CONTROL, token, STATE_ON);
-    delay(3000);
-    // if (has_data){
-    //     has_data = false;
-    //     Serial.println(type);
-    //     Serial.println(state);
-    //     Serial.println(data);
-    // }
-    Radio.send(MSG_TYPE_SOFT_CONTROL, token, STATE_OFF);
-    delay(3000);
+	cmd_vector cmds;
+	api.get_pending_cmd(cmds);
+	
+	for (auto cmd = cmds.begin(); cmd != cmds.end(); ++cmd){
+		Serial.println("[loop] iterating through cmd");
+		Radio.send(*cmd);
+	}
+
+	delay(1000);
 }

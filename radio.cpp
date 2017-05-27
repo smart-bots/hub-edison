@@ -1,5 +1,5 @@
 #include "radio.h"
-
+#include "printf.h"
 _Radio Radio;
 
 void interrupt_handler(){
@@ -21,20 +21,32 @@ void _Radio::setup(bool is_hub){
     	radio.openWritingPipe(NRF_READ_ADDR);	
     }
     radio.startListening();
+    printf_begin();
+    radio.printDetails();
+}
+
+void _Radio::send(send_msg msg){
+    Serial.print("[Radio::send] sending the following: ");
+    Serial.print(msg.type);
+    Serial.print(" ");
+    Serial.print(msg.token);
+    Serial.print(" ");
+    Serial.println(msg.state);
+
+    radio.stopListening();
+    radio.write(&msg, sizeof(msg));
+    radio.startListening();
 }
 
 void _Radio::send(byte type, char token[], short state){
     send_msg req;
 
     req.type = type;
-
-    strcpy(req.token, token);
-
+    strncpy(req.token, token, 10);
+    req.token[10] = '\0';
     req.state = state;
 
-    radio.stopListening();
-    radio.write(&req, sizeof(req));
-    radio.startListening();
+    send(req);
 }
 
 void _Radio::register_receive_handler(void (*handler)(byte, char[], short, float)){
