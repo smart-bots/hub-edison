@@ -40,7 +40,7 @@ public:
 
     bool setup(std::string ssid, std::string password);
     bool send_cmd(receive_msg msg);
-    bool get_pending_cmd(cmd_vector &cmds);
+    bool get_pending_cmds(cmd_vector &cmds);
 };
 
 #endif

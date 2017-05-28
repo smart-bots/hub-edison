@@ -1,5 +1,4 @@
 #include "radio.h"
-#include "printf.h"
 _Radio Radio;
 
 void interrupt_handler(){
@@ -7,12 +6,20 @@ void interrupt_handler(){
 }
 
 void _Radio::setup(bool is_hub){
-	attachInterrupt(NRF_IRQ_PIN, interrupt_handler, CHANGE);
+	attachInterrupt(NRF_IRQ_PIN, interrupt_handler, FALLING);
+
+    pinMode(NRF_CE_PIN, OUTPUT);
+    pinMode(NRF_CS_PIN, OUTPUT);
+    // digitalWrite(NRF_CE_PIN, HIGH);
+    // digitalWrite(NRF_CS_PIN, HIGH);
 
     radio.begin();
-    radio.setAutoAck(NRF_ACK);
+    radio.setPALevel(RF24_PA_MIN);
+    radio.enableAckPayload();
+    radio.setAutoAck(true);
     radio.enableDynamicPayloads();
     radio.setRetries(15,15);
+    radio.maskIRQ(true, true, false); // mask tx_ok and tx_failure IRQ
     if (is_hub){
     	radio.openReadingPipe(1, NRF_READ_ADDR);
     	radio.openWritingPipe(NRF_WRITE_ADDR);	
@@ -21,7 +28,7 @@ void _Radio::setup(bool is_hub){
     	radio.openWritingPipe(NRF_READ_ADDR);	
     }
     radio.startListening();
-    printf_begin();
+
     radio.printDetails();
 }
 
@@ -36,6 +43,7 @@ void _Radio::send(send_msg msg){
     radio.stopListening();
     radio.write(&msg, sizeof(msg));
     radio.startListening();
+    Serial.println("[Radio::send] out");
 }
 
 void _Radio::send(byte type, char token[], short state){
@@ -49,20 +57,23 @@ void _Radio::send(byte type, char token[], short state){
     send(req);
 }
 
-void _Radio::register_receive_handler(void (*handler)(byte, char[], short, float)){
+void _Radio::register_receive_handler(void (*handler)(receive_msg)){
     this->handler = handler;
 }
 
 void _Radio::on_received(){
-    if (handler == NULL){
-        return;
-    }
+    Serial.println("[_Radio::on_received] called");
 
     bool tx_ok, tx_fail, rx_avail;
     radio.whatHappened(tx_ok, tx_fail, rx_avail);
-    if (rx_avail || radio.available()){
-        receive_msg msg;
-        radio.read(&msg, sizeof(msg));
-        (*handler)(msg.type, msg.token, msg.state, msg.data);
+    if (rx_avail && (radio.available() > 0)){
+        Serial.println("[_Radio::on_received] There's data to read");
+        if (handler != NULL){
+            receive_msg msg;
+            radio.read(&msg, sizeof(msg));
+            Serial.println("[_Radio::on_received] Calling handler");
+            handler(msg);
+            Serial.println("[_Radio::on_received] out");
+        }
     }        
 }

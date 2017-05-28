@@ -46,7 +46,7 @@ bool SmartBotsAPI::send_cmd(receive_msg recv){
         return false;
     }
 
-    post_data data;
+    HTTP::Type::post_data data;
     data["hubToken"] = token;
     data["botToken"] = recv.token;
     data["status"] = std::to_string(recv.state);
@@ -56,7 +56,7 @@ bool SmartBotsAPI::send_cmd(receive_msg recv){
         data["hard"] = "0";
     }
 
-    HTTPClient req;
+    HTTP::Client req;
     req.post(host, port, "/api/up", data);
     if (!req.success || req.status_code != 200){
         return false;
@@ -65,8 +65,8 @@ bool SmartBotsAPI::send_cmd(receive_msg recv){
     }
 }
 
-bool SmartBotsAPI::get_pending_cmd(cmd_vector &cmds){
-    DEBUG("[SmartBotsAPI::get_pending_cmd] in");
+bool SmartBotsAPI::get_pending_cmds(cmd_vector &cmds){
+    DEBUG("[SmartBotsAPI::get_pending_cmds] in");
 
     if (!connected){
         return false;
@@ -74,16 +74,18 @@ bool SmartBotsAPI::get_pending_cmd(cmd_vector &cmds){
 
     cmds.clear();
 
-    post_data data;
+    HTTP::Type::post_data data;
     data["hubToken"] = token;
 
-    HTTPClient req;
+    HTTP::Client req;
     req.post(host, port, "/api/down", data);
-    if (!req.success || req.status_code != 200){
+    if (req.status_code != 200){
+        Serial.print("[SmartBotsAPI::get_pending_cmds] fail, status code is ");
+        Serial.println(req.status_code);
         return false;
     } else {
         DynamicJsonBuffer jsonBuf;
-        JsonObject &data = jsonBuf.parseObject(req.response.c_str());
+        JsonObject &data = jsonBuf.parseObject(req.body.c_str());
 
         int i;
         send_msg msg;
@@ -96,7 +98,7 @@ bool SmartBotsAPI::get_pending_cmd(cmd_vector &cmds){
             msg.token[10] = '\0';
             msg.state = data[key]["state"];
 
-            Serial.println("[SmartBotsAPI::get_pending_cmd] Pushing cmd");
+            Serial.println("[SmartBotsAPI::get_pending_cmds] Pushing cmd");
             cmds.push_back(msg);
         }
 

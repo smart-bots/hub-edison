@@ -2,42 +2,32 @@
 
 #define HTTP_CLIENT_H
 
-#include <WiFi.h>
-#include <WiFiClient.h>
-#include <string>
-#include <map>
-#include <sstream>
+#include "http.h"
 
-#define TIMEOUT 5000
+namespace HTTP {
+	class Client {
+	private:
+		void parse_response();
+	public:
+		WiFiClient client;
 
-typedef std::map<std::string, std::string> post_data;
-typedef std::map<std::string, std::string> headers_t;
+		bool success = true;
+		int status_code = 0;
 
-class HTTPClient {
-private:
-	WiFiClient client;
+		HTTP::Type::headers_t headers;
 
-	void parse_response();
-	void parse_status_line();
-	bool parse_header();
-	void read_body();
-public:
-	bool success = true;
-	int status_code = 0;
+		std::string body;
 
-	headers_t headers;
+		Client(){
+			body = "";
+			headers.clear();
+		};
 
-	std::string response;
-
-	HTTPClient(){
-		response = "";
-		headers.clear();
+		void post(std::string host,
+			      short port,
+			      std::string url,
+			      HTTP::Type::post_data data);
 	};
-
-	void post(std::string host,
-		         short port,
-		         std::string url,
-		         post_data data);
-};
+}
 
 #endif
