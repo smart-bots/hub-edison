@@ -5,7 +5,7 @@ void interrupt_handler(){
 	Radio.on_received();
 }
 
-void _Radio::setup(bool is_hub){
+bool _Radio::setup(bool is_hub){
 	attachInterrupt(NRF_IRQ_PIN, interrupt_handler, FALLING);
 
     pinMode(NRF_CE_PIN, OUTPUT);
@@ -13,23 +13,38 @@ void _Radio::setup(bool is_hub){
     // digitalWrite(NRF_CE_PIN, HIGH);
     // digitalWrite(NRF_CS_PIN, HIGH);
 
-    radio.begin();
-    radio.setPALevel(RF24_PA_MIN);
-    radio.enableAckPayload();
-    radio.setAutoAck(true);
-    radio.enableDynamicPayloads();
-    radio.setRetries(15,15);
-    radio.maskIRQ(true, true, false); // mask tx_ok and tx_failure IRQ
-    if (is_hub){
-    	radio.openReadingPipe(1, NRF_READ_ADDR);
-    	radio.openWritingPipe(NRF_WRITE_ADDR);	
-    } else {
-    	radio.openReadingPipe(1, NRF_WRITE_ADDR);
-    	radio.openWritingPipe(NRF_READ_ADDR);	
-    }
-    radio.startListening();
+    do {
+        Serial.println("[Radio::setup] Initializing RF");
+        radio.begin();
+        radio.setPALevel(NRF_PA_LEVEL);
+        radio.setDataRate(NRF_DATA_RATE);
+        radio.enableAckPayload();
+        radio.setAutoAck(true);
+        radio.enableDynamicPayloads();
+        radio.setRetries(15,15);
+        radio.maskIRQ(true, true, false); // mask tx_ok and tx_failure IRQ
+        radio.setCRCLength(RF24_CRC_16);
+        if (is_hub){
+        	radio.openReadingPipe(1, NRF_READ_ADDR);
+        	radio.openWritingPipe(NRF_WRITE_ADDR);	
+        } else {
+        	radio.openReadingPipe(1, NRF_WRITE_ADDR);
+        	radio.openWritingPipe(NRF_READ_ADDR);	
+        }
+        radio.startListening();
 
-    radio.printDetails();
+        radio.printDetails();
+    } while (!check_valid_params());
+
+    return true;
+}
+
+bool _Radio::check_valid_params(){
+    return (radio.getCRCLength() == RF24_CRC_16)
+        && (radio.isPVariant())
+        && (radio.getPALevel() == NRF_PA_LEVEL)
+        && (radio.getDataRate() == NRF_DATA_RATE)
+        && (!radio.failureDetected);
 }
 
 void _Radio::send(send_msg msg){
@@ -66,7 +81,7 @@ void _Radio::on_received(){
 
     bool tx_ok, tx_fail, rx_avail;
     radio.whatHappened(tx_ok, tx_fail, rx_avail);
-    if (rx_avail && (radio.available() > 0)){
+    if (rx_avail || (radio.available() > 0)){
         Serial.println("[_Radio::on_received] There's data to read");
         if (handler != NULL){
             receive_msg msg;

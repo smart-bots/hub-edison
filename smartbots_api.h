@@ -5,6 +5,7 @@
 #include <map>
 #include <sstream>
 #include <vector>
+#include <mutex>
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -12,7 +13,7 @@
 #include <ArduinoJson.h>
 
 #include "radio.h"
-#include "http_client.h"
+#include "http.h"
 
 #define RETRIES_NUM 5
 #define TIMEOUT 5000
@@ -22,7 +23,13 @@
 
 #define DEBUG(x) Serial.println(x)
 
-typedef std::vector<send_msg> cmd_vector;
+typedef std::vector<send_msg> cmd_queue;
+
+typedef struct {
+    WiFiClient client;
+    bool in_use = false;
+    bool fail = false;
+} client_s;
 
 class SmartBotsAPI {
 private:
@@ -30,17 +37,20 @@ private:
 
     std::string host, token;
     short port;
+    std::vector<client_s> clients;
+    WiFiClient client;
 
-    bool wifi_connect(std::string ssid,
-                      std::string password);
+    bool wifi_connect(std::string &ssid,
+                      std::string &password);
+    client_s& get_available_client();
+    bool connect_to_host(WiFiClient &client);
 public:
-    SmartBotsAPI(std::string host,
-                 short port,
-                 std::string token);
-
-    bool setup(std::string ssid, std::string password);
+    void setup(std::string &host,
+               short port,
+               std::string &token);
+    bool setup(std::string &ssid, std::string &password);
     bool send_cmd(receive_msg msg);
-    bool get_pending_cmds(cmd_vector &cmds);
+    bool get_pending_cmds(cmd_queue &cmds);
 };
 
 #endif

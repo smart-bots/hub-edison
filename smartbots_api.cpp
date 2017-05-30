@@ -1,51 +1,77 @@
 #include "smartbots_api.h"
 
-SmartBotsAPI::SmartBotsAPI(std::string host,
-             short port,
-             std::string token){
+void SmartBotsAPI::setup(std::string &host,
+                         short port,
+                         std::string &token){
     
     this->host = host;
     this->port = port;
     this->token = token;
 }
 
-bool SmartBotsAPI::wifi_connect(std::string ssid,
-                                std::string password){
-    Serial.print("[SmartBotsAPI::wifi_connect] ");
+bool SmartBotsAPI::wifi_connect(std::string &ssid,
+                                std::string &password){
+    Serial.print("[SmartBotsAPI::wifi_connect] SSID: ");
     Serial.println(ssid.c_str());
-    Serial.print("[SmartBotsAPI::wifi_connect] ");
+    Serial.print("[SmartBotsAPI::wifi_connect] Password: ");
     Serial.println(password.c_str());
 
     int8_t remaining = RETRIES_NUM;
     while (remaining >= 0){
         if (WiFi.begin((char*)ssid.c_str(), (char*)password.c_str()) == WL_CONNECTED){
-            connected = true;   
             return true;
         }
-        Serial.print("[SmartBotsAPI::ssid_connect] failure, ");
+        Serial.print("[SmartBotsAPI::wifi_connect] Connect to wifi failed, ");
         Serial.print(remaining);
         Serial.println(" retries left");
         delay(3000);
         remaining--;
     }
-    connected = false;
     return false;
 }
 
-bool SmartBotsAPI::setup(std::string ssid,
-                         std::string password){
+bool SmartBotsAPI::setup(std::string &ssid,
+                         std::string &password){
     WiFi.disconnect();
     WiFi.setDNS(GOOGLE_DNS_1, GOOGLE_DNS_2);
-    return this->wifi_connect(ssid, password);  
+    if (this->wifi_connect(ssid, password)){
+        connected = true;
+    } else {
+        connected = false;
+    }
+    return connected;
+}
+
+bool SmartBotsAPI::connect_to_host(WiFiClient &client){
+    client.stop();
+
+    int8_t remaining = RETRIES_NUM;
+
+    while (remaining >= 0){
+        if (client.connect(host.c_str(), port)){
+            return true;
+        }
+        Serial.print("[SmartBotsAPI::connect_to_host] Connect to host failed, ");
+        Serial.print(remaining);
+        Serial.println(" retries left");
+        delay(500);
+        remaining--;
+    }
+    return false;
 }
 
 bool SmartBotsAPI::send_cmd(receive_msg recv){
-    DEBUG("[SmartBotsAPI::send_cmd] in");
+    DEBUG("[SmartBotsAPI::send_cmd] Called");
 
     if (!connected){
         return false;
     }
 
+    WiFiClient client;
+    if (!connect_to_host(client)){
+        return false;
+    }
+    
     HTTP::Type::post_data data;
     data["hubToken"] = token;
     data["botToken"] = recv.token;
@@ -56,8 +82,13 @@ bool SmartBotsAPI::send_cmd(receive_msg recv){
         data["hard"] = "0";
     }
 
-    HTTP::Client req;
-    req.post(host, port, "/api/up", data);
+    HTTP::Response req = HTTP::Shortcut::POST(client,
+                                              REQUEST_METHOD_POST,
+                                              host,
+                                              "/api/up",
+                                              data);
+    client.stop();
+
     if (!req.success || req.status_code != 200){
         return false;
     } else {
@@ -65,10 +96,15 @@ bool SmartBotsAPI::send_cmd(receive_msg recv){
     }
 }
 
-bool SmartBotsAPI::get_pending_cmds(cmd_vector &cmds){
+bool SmartBotsAPI::get_pending_cmds(cmd_queue &cmds){
     DEBUG("[SmartBotsAPI::get_pending_cmds] in");
 
     if (!connected){
+        return false;
+    }
+
+    WiFiClient client;
+    if (!connect_to_host(client)){
         return false;
     }
 
@@ -77,8 +113,14 @@ bool SmartBotsAPI::get_pending_cmds(cmd_vector &cmds){
     HTTP::Type::post_data data;
     data["hubToken"] = token;
 
-    HTTP::Client req;
-    req.post(host, port, "/api/down", data);
+    HTTP::Response req = HTTP::Shortcut::POST(client,
+                                              REQUEST_METHOD_POST,
+                                              host,
+                                              "/api/down",
+                                              data);
+
+    client.stop();
+
     if (req.status_code != 200){
         Serial.print("[SmartBotsAPI::get_pending_cmds] fail, status code is ");
         Serial.println(req.status_code);
